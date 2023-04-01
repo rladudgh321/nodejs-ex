@@ -3,6 +3,7 @@ const url = require('url');
 const fs = require('fs');
 const template = require('./lib/template');
 const qs = require('querystring');
+const path = require('path');
 const sanitizeHtml = require('sanitize-html');
 
 const app = http.createServer(function(request,response){
@@ -21,21 +22,28 @@ const app = http.createServer(function(request,response){
                 response.end(html);
             });
         } else {
+
             fs.readdir(`./data`,function(error,filelist){
-                fs.readFile(`./data/${queryData.id}`,'utf8',function(error2,data){
-                const title = queryData.id;
-                const list = template.link(filelist);
-                const html = template.html(title,list,data, `
-                <a href="/create">CREATE</a>
-                <a href="/update?id=${queryData.id}">UPDATE</a>
-                <form action="delete_process" method="post">
-                    <p><input type="hidden" name="id" value="${queryData.id}"></p>
-                    <p><input type="submit" value="DELETE"></p>
-                </form>
-                `);
-                    response.writeHead(200);
-                    response.end(html);
-                });
+                const filtered = path.parse(queryData.id).base;
+                fs.readFile(`./data/${filtered}`,'utf8',function(error2,data){
+                    const title = queryData.id;
+                    const senitizedTitle = sanitizeHtml(title);
+                    const senitizedDescription = sanitizeHtml(data, {
+                        allowedTags:['h1']
+                    });
+                    // console.log(title);
+                    const list = template.link(filelist);
+                    const html = template.html(senitizedTitle,list,senitizedDescription, `
+                    <a href="/create">CREATE</a>
+                    <a href="/update?id=${senitizedTitle}">UPDATE</a>
+                    <form action="delete_process" method="post">
+                        <p><input type="hidden" name="id" value="${senitizedTitle}"></p>
+                        <p><input type="submit" value="DELETE"></p>
+                    </form>
+                    `);
+                        response.writeHead(200);
+                        response.end(html);
+                    });
             });
         }
     } else if(pathname === '/create'){
@@ -69,7 +77,8 @@ const app = http.createServer(function(request,response){
         });
     } else if(pathname === '/update'){
         fs.readdir(`./data`,function(error,filelist){
-            fs.readFile(`./data/${queryData.id}`,'utf8',function(error2,data){
+            const filtered = path.parse(queryData.id).base;
+            fs.readFile(`./data/${filtered}`,'utf8',function(error2,data){
                 const title = 'UPDATE';
                 const list = template.link(filelist);
                 const html = template.html(title,list,'',`
@@ -109,7 +118,8 @@ const app = http.createServer(function(request,response){
         request.on('end',function(){
             const post = qs.parse(body);
             // console.log(post);
-            fs.unlink(`./data/${post.id}`,function(error){
+            const filtered = path.parse(post.id).base;
+            fs.unlink(`./data/${filtered}`,function(error){
                 response.writeHead(302,{location:`/`});
                 response.end();
             });
